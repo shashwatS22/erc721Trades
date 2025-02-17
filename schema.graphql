@@ -1,0 +1,213 @@
+###
+# Subgraph Schema: ERC721 Smart Contracts and Tokens
+# Version: 1.0.0
+
+#############################
+####### Token Metadata ######
+#############################
+
+type Token @entity {
+  " Address of the token, { Contract Address }-{ Token ID }  "
+  id: ID!
+
+  " Collection for the token "
+  collection: Collection!
+
+  " ID of the token from the collection "
+  tokenId: BigInt!
+
+  " URI of the token "
+  tokenUri: String
+
+  " The owner for the token "
+  owner: Account!
+
+  " Timestamp of the token's mint "
+  mintTimestamp: BigInt!
+
+  " Trades for this token "
+  trades: [Trade!]! @derivedFrom(field: "token")
+}
+
+#########################################
+####### ERC721 Collection Metadata ######
+#########################################
+
+type Collection @entity {
+  " ERC721 collection address "
+  id: Bytes!
+
+  " Name of the collection "
+  name: String
+
+  " Symbol of the collection "
+  symbol: String
+
+  baseURI: String!
+
+  " Total number of unique minted tokens in the collection "
+  tokenCount: BigInt!
+
+  " Total number of unique token owners holding tokens in the collection "
+  ownerCount: BigInt!
+
+  " Total number of token events "
+  eventCount: BigInt!
+
+  " Tokens in the collection "
+  tokens: [Token!]! @derivedFrom(field: "collection")
+
+  " List of token events "
+  events: [TokenEvent!]! @derivedFrom(field: "collection")
+
+  " Token holder's balance "
+  accountBalance: [AccountBalance!]! @derivedFrom(field: "collection")
+
+  " Timestamp of the collection creation "
+  creationTimestamp: BigInt!
+
+  " BlockNumber of the collection creation "
+  creationBlock: BigInt!
+
+  " Trades for the collection "
+  trades: [Trade!]! @derivedFrom(field: "collection")
+}
+
+###############################
+##### TokenEvent Data #####
+###############################
+
+enum EventType {
+  MINT
+  BURN
+  TRANSFER
+}
+
+type TokenEvent @entity {
+  " { Contract ID }-{ Transaction hash }-{ Log index } "
+  id: ID!
+
+  " Transaction hash of the transaction that emitted this event "
+  hash: String!
+
+  " TokenEvent Type - MINT, BURN, TRANSFER "
+  type: EventType!
+
+  " Flag to check if a transfer is a trade or not "
+  isTrade: Boolean!
+
+  " TokenEvent log index. For transactions that don't emit event, create arbitrary index starting from 0 "
+  logIndex: Int!
+
+  " The ERC721 Collection this event belongs to "
+  collection: Collection!
+
+  " Nonce of the transaction that emitted this event "
+  nonce: Int!
+
+  " ID of the token transferred "
+  tokenId: BigInt!
+
+  " Account that received the tokens "
+  to: Account!
+
+  " Account that sent the tokens "
+  from: Account!
+
+  " Block number of this event "
+  blockNumber: BigInt!
+
+  " Timestamp of this event "
+  timestamp: BigInt!
+}
+
+# An account is a unique Ethereum address
+type Account @entity {
+  " Address of the account "
+  id: Bytes!
+
+  " Total number of unique tokens that this account holds "
+  tokenCount: BigInt!
+
+  " Tokens that this account holds "
+  tokens: [Token!]! @derivedFrom(field: "owner")
+
+  " Array of token events where this account is the recipient, indicating all incoming token activities. "
+  receivedTokenEvents: [TokenEvent!]! @derivedFrom(field: "to")
+
+  " Array of token events initiated by this account, representing all outgoing token transactions. "
+  sentTokenEvents: [TokenEvent!]! @derivedFrom(field: "from")
+
+  " Token balances that this account holds "
+  balances: [AccountBalance!]! @derivedFrom(field: "account")
+}
+
+type AccountBalance @entity {
+  " { Address Of the Account }-{ Address of the Collection }"
+  id: ID!
+
+  " Account address "
+  account: Account!
+
+  " Collection address "
+  collection: Collection!
+
+  " Current token amount for the collection "
+  tokenCount: BigInt!
+}
+
+#####################################
+####### Non ERC721 Collections ######
+#####################################
+
+type NonERC721Collection @entity {
+  " Non ERC721 Smart contract address "
+  id: Bytes!
+}
+
+type ERC20 @entity(immutable: true) {
+  " ERC20 Smart contract address "
+  id: Bytes!
+
+  " Trades which are executed using this ERC20 token "
+  trades: [Trade!]! @derivedFrom(field: "erc20Token")
+
+  " Collection volumes for this ERC20 token "
+  collectionVolumes: [CollectionVolume!]! @derivedFrom(field: "erc20Token")
+
+  " Token volumes for this ERC20 token "
+  tokenVolumes: [TokenVolume!]! @derivedFrom(field: "erc20Token")
+}
+
+type Trade @entity(immutable: true) {
+  " { transactionHash }-{ logIndex } "
+  id: Bytes!
+
+  " Transaction Hash "
+  hash: String!
+
+  " Block number of this event "
+  blockNumber: BigInt!
+
+  " Timestamp of this event "
+  timestamp: BigInt!
+
+  " Collection of the ERC721 token "
+  collection: Collection!
+
+  " Traded ERC721 token "
+  token: Token!
+
+  " Native amount in which the NFT is traded "
+  erc20TokenAmount: BigInt!
+
+  " The token in which the NFT is traded in example USDC, ETH "
+  erc20Token: ERC20!
+
+  " Address of the selling contract example seaport for opensea "
+  marketplaceAddress: Bytes!
+
+  " Marketplace name eg. Opensea, Blur"
+  marketplaceName: String!
+}
+

@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package transfer.v1;
+
+enum Market {
+    UNKNOWN = 0;
+    WYVERN = 1;
+    OPENSEA = 2;
+}
+
+message Transfer {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string from = 5;  
+    string to = 6;
+    string token_address = 8;
+    string token_id = 9;
+    bool is_burned = 10;
+    bool is_minted = 11;
+    bool is_traded = 12;
+    Market market = 13;
+    repeated TransferLog transferLogs = 14;
+}
+
+message TransferLog {
+    string address = 1;
+    string data = 2;
+    repeated string topics = 3;
+}
+
+message Trade {
+    string id = 1;                    
+    string hash = 2;                  
+    uint64 block_number = 3;          
+    uint64 timestamp = 4;             
+    string collection_address = 5;     
+    string token_id = 6;              
+    string erc20_token_amount = 7;    
+    string erc20_token_address = 8;  
+    string marketplace_address = 9;    
+    string marketplace_name = 10;     
+} 
+
+message Token {
+    string id = 1;                    
+    string collection_address = 2;     
+    string token_id = 3;              
+    string token_uri = 4;             
+    string owner = 5;                 
+    uint64 mint_timestamp = 6;        
+}
+
+message Collection {
+    string id = 1;                    // Contract address
+    string name = 2;                  // Collection name
+    string symbol = 3;                // Collection symbol
+    string base_uri = 4;              // Base URI
+    uint64 token_count = 5;           // Total number of tokens
+    uint64 owner_count = 6;           // Total number of unique owners
+    uint64 event_count = 7;           // Total number of events
+    uint64 creation_timestamp = 8;     // Creation timestamp
+    uint64 creation_block = 9;        // Creation block number
+}
