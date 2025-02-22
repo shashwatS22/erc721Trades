@@ -9,21 +9,23 @@ enum Market {
     WYVERN = 1;
     OPENSEA = 2;
 }
-
+message Transfers {
+    repeated Transfer transfers = 1;
+}
 message Transfer {
-    string evt_tx_hash = 1;
-    uint32 evt_index = 2;
-    google.protobuf.Timestamp evt_block_time = 3;
-    uint64 evt_block_number = 4;
-    string from = 5;  
-    string to = 6;
-    string token_address = 8;
-    string token_id = 9;
-    bool is_burned = 10;
-    bool is_minted = 11;
-    bool is_traded = 12;
-    Market market = 13;
-    repeated TransferLog transferLogs = 14;
+    string evt_tx_hash = 1;           // length-delimited (wire type 2)
+    uint32 evt_index = 2;             // varint (wire type 0)
+    google.protobuf.Timestamp evt_block_time = 3;  // length-delimited (wire type 2)
+    uint64 evt_block_number = 4;      // varint (wire type 0)
+    string from = 5;                  // length-delimited (wire type 2)
+    string to = 6;                    // length-delimited (wire type 2)
+    string collection_address = 8;     // length-delimited (wire type 2)
+    string token_id = 9;              // length-delimited (wire type 2)
+    bool is_burned = 10;              // varint (wire type 0)
+    bool is_minted = 11;              // varint (wire type 0)
+    bool is_traded = 12;              // varint (wire type 0)
+    Market market = 13;               // varint (wire type 0)
+    repeated TransferLog transferLogs = 14;  // length-delimited (wire type 2)
 }
 
 message TransferLog {
@@ -38,11 +40,12 @@ message Trade {
     uint64 block_number = 3;          
     uint64 timestamp = 4;             
     string collection_address = 5;     
-    string token_id = 6;              
-    string erc20_token_amount = 7;    
-    string erc20_token_address = 8;  
-    string marketplace_address = 9;    
-    string marketplace_name = 10;     
+    string token_id = 6;         
+    uint64 fee = 7;      
+    string erc20_token_amount = 8;    
+    string erc20_token_address = 9;  
+    string marketplace_address = 10;    
+    string marketplace_name = 11;     
 } 
 
 message Token {

@@ -18,31 +18,31 @@ binaries:
     file: ./target/wasm32-unknown-unknown/release/substreams.wasm
 
 modules:
-  - name: map_my_data
+  - name: map_transfers
     kind: map
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
-      type: proto:transfer.v1.Transfer
+      type: proto:transfer.v1.Transfers
 
-  - name: map_collections
-    kind: map
-    inputs:
-      - source: map_my_data
-    output:
-      type: proto:transfer.v1.Collection
+  # - name: map_collections
+  #   kind: map
+  #   inputs:
+  #     - source: map_transfers
+  #   output:
+  #     type: proto:transfer.v1.Collection
 
-  - name: map_tokens
-    kind: map
-    inputs:
-      - source: map_my_data
-    output:
-      type: proto:transfer.v1.Token
+  # - name: map_tokens
+  #   kind: map
+  #   inputs:
+  #     - source: map_transfers
+  #   output:
+  #     type: proto:transfer.v1.Token
 
   - name: map_trades
     kind: map
     inputs:
-      - source: map_my_data
+      - source: map_transfers
     output:
       type: proto:transfer.v1.Trade
 

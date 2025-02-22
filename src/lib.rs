@@ -2,7 +2,10 @@ mod pb;
 use hex_literal::hex;
 use pb::transfer::v1 as transfer;
 
-use substreams::Hex;
+use substreams::{
+    log::{self, info},
+    Hex,
+};
 use substreams_ethereum::pb::eth::v2::Block;
 
 #[allow(unused_imports)]
@@ -19,7 +22,6 @@ substreams_ethereum::init!();
 //if the transfer is a trade save the trade
 
 //log.address is the collection address
-
 const SEAPORT_TOPIC0: [u8; 32] =
     hex!("9d9af8e38d66c62e2c12f0225249fd9d721c54b83f48d9352c97c6cacdcb6f31");
 
@@ -37,15 +39,11 @@ pub struct TradeUtils;
 
 impl TradeUtils {
     pub fn get_address_from_hex_string(hex_string: &str) -> String {
-        format!("0x{}", &hex_string[24..])
-    }
-
-    pub fn get_address_from_bytes(bytes: &[u8]) -> String {
-        format!("0x{}", &Hex(bytes).to_string()[26..])
+        hex_string[24..].to_string()
     }
 
     pub fn hex_to_bigint(hex: &str) -> BigInt {
-        let hex = hex.trim_start_matches("0x").to_uppercase();
+        let hex = hex.to_uppercase();
         let mut result = BigInt::from(0);
         let mut power = BigInt::from(1);
 
@@ -64,116 +62,226 @@ impl TradeUtils {
 }
 
 #[substreams::handlers::map]
-fn map_my_data(blk: Block) -> transfer::Transfer {
-    let mut data = transfer::Transfer::default();
-
+fn map_transfers(blk: Block) -> transfer::Transfers {
+    let mut data = transfer::Transfers::default();
     blk.transaction_traces.iter().for_each(|tx| {
         tx.receipt.iter().for_each(|r| {
             r.logs.iter().for_each(|l| {
-                // Check if there are any topics before accessing
                 if l.topics.is_empty() {
                     return;
                 }
 
                 let event_signature = &l.topics[0];
                 let topics_length = l.topics.len();
-                if event_signature.as_slice() == ERC721_TRANSFER_TOPIC0 {
-                    if topics_length == 4 {
-                        let from = Hex(&l.topics[1]).to_string();
-                        let to = Hex(&l.topics[2]).to_string();
-                        let token_id = Hex(&l.topics[3]).to_string();
-                        data.token_address = Hex(&l.address).to_string();
-                        if from == Hex(&NULL_ADDRESS).to_string() {
-                            data.is_minted = true;
-                        } else if to == Hex(&NULL_ADDRESS).to_string() {
-                            data.is_burned = true;
-                        }
-                        data.from = from;
-                        data.to = to;
-                        data.token_id = token_id;
-                        data.evt_tx_hash = Hex(&tx.hash).to_string();
-                        data.evt_index = tx.index as u32;
-                        data.evt_block_time = Some(blk.timestamp().to_owned());
-                        data.evt_block_number = blk.number.to_u64().unwrap();
-                        data.transfer_logs = r
-                            .logs
-                            .iter()
-                            .map(|l| transfer::TransferLog {
-                                address: Hex(&l.address).to_string(),
-                                data: Hex(&l.data).to_string(),
-                                topics: l.topics.iter().map(|t| Hex(t).to_string()).collect(),
-                            })
-                            .collect();
+                if event_signature.as_slice() == ERC721_TRANSFER_TOPIC0 && topics_length == 4 {
+                    let mut transfer_event = transfer::Transfer::default();
 
-                        // Check if this transfer is a trade
-                        for log in &r.logs {
-                            if !log.topics.is_empty() {
-                                let topic0 = &log.topics[0];
-                                if topic0.as_slice() == SEAPORT_TOPIC0 {
-                                    data.is_traded = true;
-                                    data.market = transfer::Market::Opensea as i32;
-                                    break;
-                                } else if topic0.as_slice() == WYVERN_TOPIC0 {
-                                    data.is_traded = true;
-                                    data.market = transfer::Market::Wyvern as i32;
-                                    break;
-                                }
+                    // Initialize all fields to ensure proper protobuf encoding
+                    transfer_event.evt_tx_hash = Hex(&tx.hash).to_string();
+                    transfer_event.evt_index = tx.index as u32;
+                    transfer_event.evt_block_time = Some(blk.timestamp().to_owned());
+                    transfer_event.evt_block_number = blk.number.to_u64().unwrap();
+                    transfer_event.from = Hex(&l.topics[1]).to_string();
+                    transfer_event.to = Hex(&l.topics[2]).to_string();
+                    transfer_event.collection_address = Hex(&l.address).to_string();
+                    transfer_event.token_id = Hex(&l.topics[3]).to_string();
+                    transfer_event.is_burned = false;
+                    transfer_event.is_minted = false;
+                    transfer_event.is_traded = false;
+                    transfer_event.market = 0;
+
+                    // Check for mint/burn
+                    if transfer_event.from == Hex(&NULL_ADDRESS).to_string() {
+                        transfer_event.is_minted = true;
+                    } else if transfer_event.to == Hex(&NULL_ADDRESS).to_string() {
+                        transfer_event.is_burned = true;
+                    }
+
+                    transfer_event.transfer_logs = r
+                        .logs
+                        .iter()
+                        .map(|l| transfer::TransferLog {
+                            address: Hex(&l.address).to_string(),
+                            data: Hex(&l.data).to_string(),
+                            topics: l.topics.iter().map(|t| Hex(t).to_string()).collect(),
+                        })
+                        .collect();
+
+                    // Check if this transfer is a trade
+                    for log in &r.logs {
+                        if !log.topics.is_empty() {
+                            let topic0 = &log.topics[0];
+                            if topic0.as_slice() == SEAPORT_TOPIC0 {
+                                transfer_event.is_traded = true;
+                                transfer_event.market = 2;
+                                break;
+                            } else if topic0.as_slice() == WYVERN_TOPIC0 {
+                                transfer_event.is_traded = true;
+                                transfer_event.market = 1;
+                                break;
+                            } else {
+                                transfer_event.is_traded = false;
                             }
                         }
                     }
+                    data.transfers.push(transfer_event);
                 }
             })
-        })
+        });
     });
 
     data
 }
 
 #[substreams::handlers::map]
-fn map_trades(transfer: transfer::Transfer) -> Result<transfer::Trade, substreams::errors::Error> {
-    let mut trades = transfer::Trade::default();
-    if transfer.is_traded {
-        
+fn map_trades(
+    transfers: transfer::Transfers,
+) -> Result<transfer::Trade, substreams::errors::Error> {
+    // Create a default trade in case no valid trade is found
+    let mut default_trade = transfer::Trade::default();
+
+    // Check if we have any transfers to process
+    if transfers.transfers.is_empty() {
+        return Ok(default_trade);
     }
-    for log in transfer.transfer_logs.iter() {
-        if let Some(topic0) = log.topics.get(0) {
-            if transfer.is_traded {
-                let data = log.data.trim_start_matches("0x");
-                if data.len() < 512 {
-                    continue;
-                }
 
-                // Extract payment details from the first consideration item
-                let consideration_offset = 320;
-                let consideration_data = &data[consideration_offset..];
+    // Process the first transfer (assuming one transfer per call)
+    let transfer = &transfers.transfers[0];
 
-                // Get the token address and amount from the consideration
-                let token_address =
-                    TradeUtils::get_address_from_hex_string(&consideration_data[24..64]);
+    log::info!("Processing transfer for trade detection:");
+    log::info!("  Is traded: {}", transfer.is_traded);
+    log::info!("  From: {}", transfer.from);
+    log::info!("  To: {}", transfer.to);
+    log::info!("  Collection: {}", transfer.collection_address);
+    log::info!("  Token ID: {}", transfer.token_id);
+    log::info!("  Market: {:?}", transfer.market);
 
-                let amount = TradeUtils::hex_to_bigint(&consideration_data[128..192]);
+    // If not a trade, return default trade with basic info
+    if !transfer.is_traded {
+        log::info!("Transfer is not a trade, skipping");
+        default_trade.id = format!("{}-{}", transfer.evt_tx_hash, transfer.evt_index);
+        default_trade.hash = transfer.evt_tx_hash.clone();
+        return Ok(default_trade);
+    }
 
-                let mut erc20_address = token_address;
-                if erc20_address == format!("0x{}", Hex(&NULL_ADDRESS).to_string()) {
-                    erc20_address = format!("0x{}", Hex(&WETH_ADDRESS).to_string());
-                }
+    // Process transfer logs
+    for (i, log) in transfer.transfer_logs.iter().enumerate() {
+        log::info!(
+            "Processing log {} of {}",
+            i + 1,
+            transfer.transfer_logs.len()
+        );
 
-                return Ok(build_trade(
-                    &transfer,
-                    &log,
-                    &erc20_address,
-                    &amount.to_string(),
-                    if transfer.market == transfer::Market::Opensea as i32 {
-                        "OpenSea"
-                    } else {
-                        "Wyvern"
-                    },
-                ));
+        if log.topics.len() < 2 {
+            continue;
+        }
+
+        let event_signature = &log.topics[0];
+        log::info!("  Event signature: {}", event_signature);
+        let topic1 = &log.topics[1];
+        let data = &log.data;
+
+        // Process Seaport trades
+        if event_signature == &Hex(SEAPORT_TOPIC0).to_string() {
+            log::info!("Processing Seaport trade");
+            if let Some(trade) = process_seaport_trade(transfer, log, topic1, data) {
+                log::info!("Seaport trade processed successfully");
+                return Ok(trade);
+            }
+        }
+        // Process Wyvern trades
+        else if event_signature == &Hex(WYVERN_TOPIC0).to_string() {
+            log::info!("Processing Wyvern trade");
+            if let Some(trade) = process_wyvern_trade(transfer, log, topic1, data) {
+                log::info!("Wyvern trade processed successfully");
+                return Ok(trade);
             }
         }
     }
 
-    Ok(trades)
+    // If no trade was processed, return default trade with basic info
+    default_trade.id = format!("{}-{}", transfer.evt_tx_hash, transfer.evt_index);
+    default_trade.hash = transfer.evt_tx_hash.clone();
+    Ok(default_trade)
+}
+
+// Helper function to process Seaport trades
+fn process_seaport_trade(
+    transfer: &transfer::Transfer,
+    log: &transfer::TransferLog,
+    topic1: &str,
+    data: &str,
+) -> Option<transfer::Trade> {
+    log::info!("data: {}", data);
+    log::info!("data len: {}", data.len());
+    if data.len() < 896 {
+        return None;
+    }
+    log::info!("data len 2: {}", data.len());
+    let from = &transfer.from;
+    let to =&transfer.to;
+    log::info!("from: {}", from);
+    log::info!("to: {}", to);
+    log::info!("topic1: {}", topic1);
+    if &topic1 == &from || &topic1 == &to {
+        log::info!("topic1: {}", topic1);
+        log::info!("from: {}", from);
+        log::info!("to: {}", to);
+        let amount_paid = TradeUtils::hex_to_bigint(&data[832..896]);
+        let marketplace_address = log.address.clone();
+        let mut fee = BigInt::from(0);
+        if data.len() > 1152 {
+            fee = TradeUtils::hex_to_bigint(&data[1152..1216]);
+        }
+        let mut token_address = TradeUtils::get_address_from_hex_string(&data[704..768]);
+        if token_address == Hex(&NULL_ADDRESS).to_string() {
+            token_address = Hex(&WETH_ADDRESS).to_string();
+        }
+
+        Some(build_trade(
+            transfer,
+            log,
+            &token_address,
+            &amount_paid.to_string(),
+            &marketplace_address,
+            &fee,
+        ))
+    } else {
+        None
+    }
+}
+
+// Helper function to process Wyvern trades
+fn process_wyvern_trade(
+    transfer: &transfer::Transfer,
+    log: &transfer::TransferLog,
+    topic1: &str,
+    data: &str,
+) -> Option<transfer::Trade> {
+    if data.len() < 256 || log.topics.len() < 3 {
+        return None;
+    }
+
+    let from = TradeUtils::get_address_from_hex_string(&transfer.from);
+    let to = TradeUtils::get_address_from_hex_string(&transfer.to);
+    let seller = TradeUtils::get_address_from_hex_string(topic1);
+
+    if seller == from {
+        let amount_paid = TradeUtils::hex_to_bigint(&data[64..128]);
+        let marketplace_address = log.address.clone();
+        let token_address = Hex(&WETH_ADDRESS).to_string();
+
+        Some(build_trade(
+            transfer,
+            log,
+            &token_address,
+            &amount_paid.to_string(),
+            &marketplace_address,
+            &BigInt::from(0),
+        ))
+    } else {
+        None
+    }
 }
 
 fn build_trade(
@@ -182,17 +290,19 @@ fn build_trade(
     erc20_address: &str,
     amount: &str,
     marketplace_name: &str,
+    fee: &BigInt,
 ) -> transfer::Trade {
     let mut trade = transfer::Trade::default();
     trade.id = format!("{}-{}", transfer.evt_tx_hash, transfer.evt_index);
     trade.hash = transfer.evt_tx_hash.clone();
     trade.block_number = transfer.evt_block_number;
     trade.timestamp = transfer.evt_block_time.as_ref().unwrap().seconds as u64;
-    trade.collection_address = transfer.token_address.clone();
+    trade.collection_address = transfer.collection_address.clone();
     trade.token_id = transfer.token_id.clone();
     trade.erc20_token_address = erc20_address.to_string();
     trade.erc20_token_amount = amount.to_string();
     trade.marketplace_address = log.address.clone();
     trade.marketplace_name = marketplace_name.to_string();
+    trade.fee = fee.to_u64().unwrap();
     trade
 }
