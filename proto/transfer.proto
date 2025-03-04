@@ -9,9 +9,11 @@ enum Market {
     WYVERN = 1;
     OPENSEA = 2;
 }
+
 message Transfers {
     repeated Transfer transfers = 1;
 }
+
 message Transfer {
     string evt_tx_hash = 1;           // length-delimited (wire type 2)
     uint32 evt_index = 2;             // varint (wire type 0)
@@ -26,6 +28,18 @@ message Transfer {
     bool is_traded = 12;              // varint (wire type 0)
     Market market = 13;               // varint (wire type 0)
     repeated TransferLog transferLogs = 14;  // length-delimited (wire type 2)
+}
+
+message Trades {
+    repeated Trade trades = 1;
+}
+
+message Collections {
+    repeated Collection collections = 1;
+}
+
+message Tokens {
+    repeated Token tokens = 1;
 }
 
 message TransferLog {
@@ -51,20 +65,29 @@ message Trade {
 message Token {
     string id = 1;                    
     string collection_address = 2;     
-    string token_id = 3;              
-    string token_uri = 4;             
-    string owner = 5;                 
-    uint64 mint_timestamp = 6;        
+    string token_id = 3;                         
+    string owner = 4;                 
+    uint64 mint_timestamp = 5;        
 }
 
 message Collection {
     string id = 1;                    // Contract address
-    string name = 2;                  // Collection name
-    string symbol = 3;                // Collection symbol
-    string base_uri = 4;              // Base URI
-    uint64 token_count = 5;           // Total number of tokens
-    uint64 owner_count = 6;           // Total number of unique owners
-    uint64 event_count = 7;           // Total number of events
-    uint64 creation_timestamp = 8;     // Creation timestamp
-    uint64 creation_block = 9;        // Creation block number
+    uint64 token_count = 2;           // Total number of tokens
+    uint64 owner_count = 3;           // Total number of unique owners
+    uint64 event_count = 4;           // Total number of events
+    uint64 creation_timestamp = 5;     // Creation timestamp
+    uint64 creation_block = 6;        // Creation block number
 }
+
+message ERC20s {
+    repeated ERC20 erc20s = 1;
+}
+
+message ERC20 {
+    string id = 1;
+    string address = 2;
+}
+
+
+
+

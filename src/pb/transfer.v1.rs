@@ -51,6 +51,24 @@ pub struct Transfer {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Trades {
+    #[prost(message, repeated, tag="1")]
+    pub trades: ::prost::alloc::vec::Vec<Trade>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Collections {
+    #[prost(message, repeated, tag="1")]
+    pub collections: ::prost::alloc::vec::Vec<Collection>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Tokens {
+    #[prost(message, repeated, tag="1")]
+    pub tokens: ::prost::alloc::vec::Vec<Token>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TransferLog {
     #[prost(string, tag="1")]
     pub address: ::prost::alloc::string::String,
@@ -95,10 +113,8 @@ pub struct Token {
     #[prost(string, tag="3")]
     pub token_id: ::prost::alloc::string::String,
     #[prost(string, tag="4")]
-    pub token_uri: ::prost::alloc::string::String,
-    #[prost(string, tag="5")]
     pub owner: ::prost::alloc::string::String,
-    #[prost(uint64, tag="6")]
+    #[prost(uint64, tag="5")]
     pub mint_timestamp: u64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -107,30 +123,35 @@ pub struct Collection {
     /// Contract address
     #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
-    /// Collection name
-    #[prost(string, tag="2")]
-    pub name: ::prost::alloc::string::String,
-    /// Collection symbol
-    #[prost(string, tag="3")]
-    pub symbol: ::prost::alloc::string::String,
-    /// Base URI
-    #[prost(string, tag="4")]
-    pub base_uri: ::prost::alloc::string::String,
     /// Total number of tokens
-    #[prost(uint64, tag="5")]
+    #[prost(uint64, tag="2")]
     pub token_count: u64,
     /// Total number of unique owners
-    #[prost(uint64, tag="6")]
+    #[prost(uint64, tag="3")]
     pub owner_count: u64,
     /// Total number of events
-    #[prost(uint64, tag="7")]
+    #[prost(uint64, tag="4")]
     pub event_count: u64,
     /// Creation timestamp
-    #[prost(uint64, tag="8")]
+    #[prost(uint64, tag="5")]
     pub creation_timestamp: u64,
     /// Creation block number
-    #[prost(uint64, tag="9")]
+    #[prost(uint64, tag="6")]
     pub creation_block: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Erc20s {
+    #[prost(message, repeated, tag="1")]
+    pub erc20s: ::prost::alloc::vec::Vec<Erc20>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Erc20 {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub address: ::prost::alloc::string::String,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

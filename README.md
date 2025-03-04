@@ -18,3 +18,5 @@ substreams registry publish       # Publish your Substreams to substreams.dev
 
 This module extracts small bits of block data, and does simple computations over the 
 number of **transactions** in each block.
+
+
