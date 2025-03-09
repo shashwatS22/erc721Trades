@@ -156,14 +156,6 @@ type AccountBalance @entity {
   tokenCount: BigInt!
 }
 
-#####################################
-####### Non ERC721 Collections ######
-#####################################
-
-type NonERC721Collection @entity {
-  " Non ERC721 Smart contract address "
-  id: Bytes!
-}
 
 type ERC20 @entity(immutable: true) {
   " ERC20 Smart contract address "

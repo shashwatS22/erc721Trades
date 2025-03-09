@@ -88,6 +88,19 @@ message ERC20 {
     string address = 2;
 }
 
+message Accounts {
+    repeated Account accounts = 1;
+}
 
+message Account {
+    string id = 1;
+    string address = 2;
+    uint64 token_count = 3;
+}
 
-
+message AccountBalance{
+    string id = 1;
+    string collection_id = 2;
+    string account_id = 3;
+    uint64 token_count = 4;
+}

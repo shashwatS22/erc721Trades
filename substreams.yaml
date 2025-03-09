@@ -39,21 +39,6 @@ modules:
     output:
       type: proto:transfer.v1.Collections
 
-  # - name: map_tokens
-  #   kind: map
-  #   inputs:
-  #     - source: map_transfers
-  #   output:
-  #     type: proto:transfer.v1.Tokens
-
-
-  # - name: map_accounts
-  #   kind: map
-  #   inputs:
-  #     - source: map_transfers
-  #   output:
-  #     type: proto:transfer.v1.Accounts
-  
   - name: map_tokens
     kind: map
     inputs:
@@ -68,8 +53,46 @@ modules:
     output:
       type: proto:transfer.v1.ERC20s
 
+  - name: map_accounts
+    kind: map
+    inputs:
+      - map: map_transfers
+    output:
+      type: proto:transfer.v1.Accounts
 
-    
+
+
+  ################Store################
+
+  - name: store_collections
+    kind: store
+    updatePolicy: set_if_not_exists
+    valueType: proto:transfer.v1.Collection
+    inputs:
+      - map: map_collections
+
+  - name: store_tokens
+    kind: store
+    updatePolicy: set_if_not_exists
+    valueType: proto:transfer.v1.Token
+    inputs:
+      - map: map_tokens
+
+  - name: store_erc20s
+    kind: store
+    updatePolicy: set_if_not_exists
+    valueType: proto:transfer.v1.ERC20
+    inputs:
+      - map: map_erc20s
+
+  - name: store_accounts
+    kind: store
+    updatePolicy: set_if_not_exists
+    valueType: proto:transfer.v1.Account
+    inputs:
+      - map: map_accounts
+
+
 
   # For performance, you should use a blockFilter whenever possible, like this:
   # imports:

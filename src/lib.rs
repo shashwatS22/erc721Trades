@@ -4,6 +4,7 @@ use pb::transfer::v1 as transfer;
 
 use substreams::{
     log::{self, info},
+    store::{StoreNew, StoreSet, StoreSetIfNotExists, StoreSetIfNotExistsProto},
     Hex,
 };
 use substreams_ethereum::pb::eth::v2::Block;
@@ -12,7 +13,6 @@ use substreams_ethereum::pb::eth::v2::Block;
 use num_traits::cast::ToPrimitive;
 
 use num_bigint::BigInt;
-use std::str::FromStr;
 
 substreams_ethereum::init!();
 //find all erc721 transfers in a block
@@ -61,6 +61,8 @@ impl TradeUtils {
     }
 }
 
+
+// Maps
 #[substreams::handlers::map]
 fn map_transfers(blk: Block) -> transfer::Transfers {
     let mut data = transfer::Transfers::default();
@@ -246,8 +248,99 @@ fn map_tokens(transfers: transfer::Transfers) -> transfer::Tokens {
     tokens
 }
 
+#[substreams::handlers::map]
+fn map_accounts(transfers: transfer::Transfers) -> transfer::Accounts {
+    let mut accounts = transfer::Accounts::default();
+    for transfer in &transfers.transfers {
+        // Create account for sender
+        // Skip creating sender account if it's a mint
+        // Skip creating receiver account if it's a burn
+        if !transfer.is_minted {
+            let mut from_account = transfer::Account::default();
+            from_account.id = transfer.from.clone();
+            from_account.address = transfer.from.clone();
+            from_account.token_count = 0;
+            accounts.accounts.push(from_account);
+            continue;
+        }
+        
 
-// Helper function to process Seaport trades
+        if !transfer.is_burned {
+            let mut to_account = transfer::Account::default();
+            to_account.id = transfer.to.clone();
+            to_account.address = transfer.to.clone();
+            to_account.token_count = 0;
+            accounts.accounts.push(to_account);
+            continue;
+        }
+        let mut from_account = transfer::Account::default();
+        from_account.id = transfer.from.clone();
+        from_account.address = transfer.from.clone();
+        from_account.token_count = 0;
+        accounts.accounts.push(from_account);
+
+        // Create account for receiver 
+        let mut to_account = transfer::Account::default();
+        to_account.id = transfer.to.clone();
+        to_account.address = transfer.to.clone();
+        to_account.token_count = 0;
+        accounts.accounts.push(to_account);
+    }
+    accounts
+}
+
+// Stores
+
+
+#[substreams::handlers::store]
+fn store_accounts(
+    accounts: transfer::Accounts,
+    store: StoreSetIfNotExistsProto<transfer::Account>,
+) {
+    for account in accounts.accounts {
+        store.set_if_not_exists(0, &account.id, &account);
+        log::info!("Attempted to store new account: {}", account.id);
+    }
+}
+
+
+#[substreams::handlers::store]
+fn store_collections(
+    collections: transfer::Collections,
+    store: StoreSetIfNotExistsProto<transfer::Collection>,
+) {
+    for collection in collections.collections {
+        store.set_if_not_exists(0, &collection.id, &collection);
+        log::info!("Attempted to store new collection: {}", collection.id);
+    }
+}
+
+#[substreams::handlers::store]
+fn store_erc20s(
+    erc20s: transfer::Erc20s,
+    store: StoreSetIfNotExistsProto<transfer::Erc20>,
+) {
+    for erc20 in erc20s.erc20s {
+        store.set_if_not_exists(0, &erc20.id, &erc20);
+        log::info!("Attempted to store new ERC20: {}", erc20.id);
+    }
+}
+
+#[substreams::handlers::store]
+fn store_tokens(
+    tokens: transfer::Tokens,
+    store: StoreSetIfNotExistsProto<transfer::Token>,
+) {
+    for token in tokens.tokens {
+        store.set_if_not_exists(0, &token.id, &token);
+        log::info!("Attempted to store new token: {}", token.id);
+    }
+}
+
+
+
+
+// Helpler function to process Seaport trades
 fn process_seaport_trade(
     transfer: &transfer::Transfer,
     log: &transfer::TransferLog,
@@ -354,7 +447,6 @@ fn process_wyvern_trade(
             &amount_paid.to_string(),
             "Wyvern",
             &marketplace_address,
-            
             &BigInt::from(0),
         ))
     } else {
