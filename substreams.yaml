@@ -92,6 +92,14 @@ modules:
     inputs:
       - map: map_accounts
 
+  - name: store_collection_owner_count
+    kind: store
+    updatePolicy: add
+    valueType: int64
+    inputs:
+      - map: map_transfers
+  
+
 
 
   # For performance, you should use a blockFilter whenever possible, like this:

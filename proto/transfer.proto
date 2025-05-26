@@ -1,7 +1,5 @@
 syntax = "proto3";
-
 import "google/protobuf/timestamp.proto";
-
 package transfer.v1;
 
 enum Market {
@@ -15,19 +13,20 @@ message Transfers {
 }
 
 message Transfer {
-    string evt_tx_hash = 1;           // length-delimited (wire type 2)
-    uint32 evt_index = 2;             // varint (wire type 0)
-    google.protobuf.Timestamp evt_block_time = 3;  // length-delimited (wire type 2)
-    uint64 evt_block_number = 4;      // varint (wire type 0)
-    string from = 5;                  // length-delimited (wire type 2)
-    string to = 6;                    // length-delimited (wire type 2)
-    string collection_address = 8;     // length-delimited (wire type 2)
-    string token_id = 9;              // length-delimited (wire type 2)
-    bool is_burned = 10;              // varint (wire type 0)
-    bool is_minted = 11;              // varint (wire type 0)
-    bool is_traded = 12;              // varint (wire type 0)
-    Market market = 13;               // varint (wire type 0)
-    repeated TransferLog transferLogs = 14;  // length-delimited (wire type 2)
+    string evt_tx_hash = 1;           
+    uint32 evt_index = 2;            
+    google.protobuf.Timestamp evt_block_time = 3;  
+    uint64 evt_block_number = 4;     
+    string from = 5;                  
+    string to = 6;                    
+    string collection_address = 7;     
+    string token_id = 8;              
+    bool is_burned = 9;             
+    bool is_minted = 10;             
+    bool is_traded = 11;             
+    Market market = 12;              
+    uint64 ordinal = 13;             
+    repeated TransferLog transferLogs = 14;  
 }
 
 message Trades {
@@ -60,6 +59,7 @@ message Trade {
     string erc20_token_address = 9;  
     string marketplace_address = 10;    
     string marketplace_name = 11;     
+    uint64 ordinal = 12;
 } 
 
 message Token {
@@ -71,12 +71,12 @@ message Token {
 }
 
 message Collection {
-    string id = 1;                    // Contract address
-    uint64 token_count = 2;           // Total number of tokens
-    uint64 owner_count = 3;           // Total number of unique owners
-    uint64 event_count = 4;           // Total number of events
-    uint64 creation_timestamp = 5;     // Creation timestamp
-    uint64 creation_block = 6;        // Creation block number
+    string id = 1;                    
+    uint64 token_count = 2;           
+    uint64 owner_count = 3;           
+    uint64 event_count = 4;           
+    uint64 creation_timestamp = 5;    
+    uint64 creation_block = 6;        
 }
 
 message ERC20s {

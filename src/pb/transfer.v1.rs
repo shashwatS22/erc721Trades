@@ -45,8 +45,11 @@ pub struct Transfer {
     /// varint (wire type 0)
     #[prost(enumeration="Market", tag="13")]
     pub market: i32,
+    /// varint (wire type 0)
+    #[prost(uint64, tag="14")]
+    pub ordinal: u64,
     /// length-delimited (wire type 2)
-    #[prost(message, repeated, tag="14")]
+    #[prost(message, repeated, tag="15")]
     pub transfer_logs: ::prost::alloc::vec::Vec<TransferLog>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -102,6 +105,8 @@ pub struct Trade {
     pub marketplace_address: ::prost::alloc::string::String,
     #[prost(string, tag="11")]
     pub marketplace_name: ::prost::alloc::string::String,
+    #[prost(uint64, tag="12")]
+    pub ordinal: u64,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -167,6 +172,18 @@ pub struct Account {
     #[prost(string, tag="2")]
     pub address: ::prost::alloc::string::String,
     #[prost(uint64, tag="3")]
+    pub token_count: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountBalance {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub collection_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub account_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="4")]
     pub token_count: u64,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

@@ -4,7 +4,10 @@ use pb::transfer::v1 as transfer;
 
 use substreams::{
     log::{self, info},
-    store::{StoreNew, StoreSet, StoreSetIfNotExists, StoreSetIfNotExistsProto},
+    store::{
+        StoreAdd, StoreAddInt64, StoreGetProto, StoreNew, StoreSet, StoreSetIfNotExists,
+        StoreSetIfNotExistsProto,
+    },
     Hex,
 };
 use substreams_ethereum::pb::eth::v2::Block;
@@ -61,7 +64,6 @@ impl TradeUtils {
     }
 }
 
-
 // Maps
 #[substreams::handlers::map]
 fn map_transfers(blk: Block) -> transfer::Transfers {
@@ -91,11 +93,15 @@ fn map_transfers(blk: Block) -> transfer::Transfers {
                     transfer_event.is_minted = false;
                     transfer_event.is_traded = false;
                     transfer_event.market = 0;
-
+                    transfer_event.ordinal = l.ordinal as u64;
                     // Check for mint/burn
-                    if transfer_event.from == Hex(&NULL_ADDRESS).to_string() {
+                    if transfer_event.from
+                        == "0000000000000000000000000000000000000000000000000000000000000000"
+                    {
                         transfer_event.is_minted = true;
-                    } else if transfer_event.to == Hex(&NULL_ADDRESS).to_string() {
+                    } else if transfer_event.to
+                        == "0000000000000000000000000000000000000000000000000000000000000000"
+                    {
                         transfer_event.is_burned = true;
                     }
 
@@ -263,7 +269,6 @@ fn map_accounts(transfers: transfer::Transfers) -> transfer::Accounts {
             accounts.accounts.push(from_account);
             continue;
         }
-        
 
         if !transfer.is_burned {
             let mut to_account = transfer::Account::default();
@@ -279,7 +284,7 @@ fn map_accounts(transfers: transfer::Transfers) -> transfer::Accounts {
         from_account.token_count = 0;
         accounts.accounts.push(from_account);
 
-        // Create account for receiver 
+        // Create account for receiver
         let mut to_account = transfer::Account::default();
         to_account.id = transfer.to.clone();
         to_account.address = transfer.to.clone();
@@ -290,19 +295,6 @@ fn map_accounts(transfers: transfer::Transfers) -> transfer::Accounts {
 }
 
 // Stores
-
-
-#[substreams::handlers::store]
-fn store_accounts(
-    accounts: transfer::Accounts,
-    store: StoreSetIfNotExistsProto<transfer::Account>,
-) {
-    for account in accounts.accounts {
-        store.set_if_not_exists(0, &account.id, &account);
-        log::info!("Attempted to store new account: {}", account.id);
-    }
-}
-
 
 #[substreams::handlers::store]
 fn store_collections(
@@ -316,10 +308,7 @@ fn store_collections(
 }
 
 #[substreams::handlers::store]
-fn store_erc20s(
-    erc20s: transfer::Erc20s,
-    store: StoreSetIfNotExistsProto<transfer::Erc20>,
-) {
+fn store_erc20s(erc20s: transfer::Erc20s, store: StoreSetIfNotExistsProto<transfer::Erc20>) {
     for erc20 in erc20s.erc20s {
         store.set_if_not_exists(0, &erc20.id, &erc20);
         log::info!("Attempted to store new ERC20: {}", erc20.id);
@@ -327,18 +316,94 @@ fn store_erc20s(
 }
 
 #[substreams::handlers::store]
-fn store_tokens(
-    tokens: transfer::Tokens,
-    store: StoreSetIfNotExistsProto<transfer::Token>,
-) {
+fn store_tokens(tokens: transfer::Tokens, store: StoreSetIfNotExistsProto<transfer::Token>) {
     for token in tokens.tokens {
         store.set_if_not_exists(0, &token.id, &token);
         log::info!("Attempted to store new token: {}", token.id);
     }
 }
 
+#[substreams::handlers::store]
+fn store_accounts(
+    accounts: transfer::Accounts,
+    store: StoreSetIfNotExistsProto<transfer::Account>,
+) {
+    for account in accounts.accounts {
+        store.set_if_not_exists(0, &account.id, &account);
+        log::info!("Attempted to store new account: {}", account.id);
+    }
+}
 
+#[substreams::handlers::store]
+fn store_collection_token_count(transfers: transfer::Transfers, store: StoreAddInt64) {
+    for transfer in transfers.transfers {
+        if transfer.is_minted {
+            // Increment token count by 1 for new mints
+            store.add(
+                transfer.ordinal,
+                &format!("collection_token_count:{}", &transfer.collection_address),
+                1,
+            );
+            log::info!(
+                "Incremented token count for collection: {}",
+                transfer.collection_address
+            );
+        }//add burn
+    }
+}
 
+#[substreams::handlers::store]
+fn store_collection_owner_count(
+    transfers: transfer::Transfers,
+    store: StoreAddInt64,
+) {
+    for transfer in transfers.transfers {
+        if transfer.is_minted {
+            // Increment owner count by 1 for new mints
+            store.add(
+                transfer.ordinal,
+                &format!("collection_owner_count:{}", &transfer.collection_address),
+                1,
+            );
+            log::info!(
+                "Incremented owner count for collection: {}",
+                transfer.collection_address
+            );
+            continue;
+        } else if transfer.is_burned {
+            // Decrement owner count by 1 for burns
+            store.add(
+                transfer.ordinal,
+                &format!("collection_owner_count:{}", &transfer.collection_address),
+                -1,
+            );
+            log::info!(
+                "Decremented owner count for collection: {}",
+                transfer.collection_address
+            );
+            continue;
+        }
+    }
+}
+
+#[substreams::handlers::store]
+fn store_collection_event_count(
+    transfers: transfer::Transfers,
+    store: StoreAddInt64,
+) {
+    for transfer in transfers.transfers {
+        // Increment event count by 1 for any transfer event
+        store.add(
+            transfer.ordinal,
+            &format!("collection_event_count:{}", &transfer.collection_address),
+            1,
+        );
+        log::info!(
+            "Incremented event count for collection: {}",
+            transfer.collection_address
+        );
+    }
+}
 
 // Helpler function to process Seaport trades
 fn process_seaport_trade(
@@ -475,5 +540,6 @@ fn build_trade(
     trade.marketplace_address = marketplace_address.to_string();
     trade.marketplace_name = marketplace_name.to_string();
     trade.fee = fee.to_u64().unwrap();
+    trade.ordinal = transfer.ordinal;
     trade
 }
