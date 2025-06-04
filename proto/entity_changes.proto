@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package entity_changes.v1;
+
+message EntityChanges {
+  repeated EntityChange entity_changes = 1;
+}
+
+message EntityChange {
+  string entity = 1;
+  string id = 2;
+  uint64 ordinal = 3;
+  Operation operation = 4;
+  repeated Field fields = 5;
+}
+
+enum Operation {
+  OPERATION_UNSPECIFIED = 0;
+  OPERATION_CREATE = 1;
+  OPERATION_UPDATE = 2;
+  OPERATION_DELETE = 3;
+}
+
+message Field {
+  string name = 1;
+  Value new_value = 2;
+  Value old_value = 3;
+}
+
+message Value {
+  oneof typed {
+    string string_value = 1;
+    int64 int64_value = 2;
+    double double_value = 3;
+    bool bool_value = 4;
+    bytes bytes_value = 5;
+    BigInt bigint_value = 6;
+    Array array_value = 7;
+  }
+}
+
+message BigInt {
+  bytes value = 1;
+}
+
+message Array {
+  repeated Value values = 1;
+} 

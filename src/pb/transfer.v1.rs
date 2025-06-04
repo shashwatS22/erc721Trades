@@ -9,47 +9,33 @@ pub struct Transfers {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Transfer {
-    /// length-delimited (wire type 2)
     #[prost(string, tag="1")]
     pub evt_tx_hash: ::prost::alloc::string::String,
-    /// varint (wire type 0)
     #[prost(uint32, tag="2")]
     pub evt_index: u32,
-    /// length-delimited (wire type 2)
     #[prost(message, optional, tag="3")]
     pub evt_block_time: ::core::option::Option<::prost_types::Timestamp>,
-    /// varint (wire type 0)
     #[prost(uint64, tag="4")]
     pub evt_block_number: u64,
-    /// length-delimited (wire type 2)
     #[prost(string, tag="5")]
     pub from: ::prost::alloc::string::String,
-    /// length-delimited (wire type 2)
     #[prost(string, tag="6")]
     pub to: ::prost::alloc::string::String,
-    /// length-delimited (wire type 2)
-    #[prost(string, tag="8")]
+    #[prost(string, tag="7")]
     pub collection_address: ::prost::alloc::string::String,
-    /// length-delimited (wire type 2)
-    #[prost(string, tag="9")]
+    #[prost(string, tag="8")]
     pub token_id: ::prost::alloc::string::String,
-    /// varint (wire type 0)
-    #[prost(bool, tag="10")]
+    #[prost(bool, tag="9")]
     pub is_burned: bool,
-    /// varint (wire type 0)
-    #[prost(bool, tag="11")]
+    #[prost(bool, tag="10")]
     pub is_minted: bool,
-    /// varint (wire type 0)
-    #[prost(bool, tag="12")]
+    #[prost(bool, tag="11")]
     pub is_traded: bool,
-    /// varint (wire type 0)
-    #[prost(enumeration="Market", tag="13")]
+    #[prost(enumeration="Market", tag="12")]
     pub market: i32,
-    /// varint (wire type 0)
-    #[prost(uint64, tag="14")]
+    #[prost(uint64, tag="13")]
     pub ordinal: u64,
-    /// length-delimited (wire type 2)
-    #[prost(message, repeated, tag="15")]
+    #[prost(message, repeated, tag="14")]
     pub transfer_logs: ::prost::alloc::vec::Vec<TransferLog>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -125,22 +111,16 @@ pub struct Token {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Collection {
-    /// Contract address
     #[prost(string, tag="1")]
     pub id: ::prost::alloc::string::String,
-    /// Total number of tokens
     #[prost(uint64, tag="2")]
     pub token_count: u64,
-    /// Total number of unique owners
     #[prost(uint64, tag="3")]
     pub owner_count: u64,
-    /// Total number of events
     #[prost(uint64, tag="4")]
     pub event_count: u64,
-    /// Creation timestamp
     #[prost(uint64, tag="5")]
     pub creation_timestamp: u64,
-    /// Creation block number
     #[prost(uint64, tag="6")]
     pub creation_block: u64,
 }

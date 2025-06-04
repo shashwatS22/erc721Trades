@@ -9,3 +9,12 @@ sink-data/
 
 # The spkg packed by the subtreams cli
 *.spkg
+
+# Build output
+build/
+
+# Node modules
+node_modules/
+
+# Cargo
+Cargo.lock

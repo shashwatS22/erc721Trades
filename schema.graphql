@@ -156,19 +156,12 @@ type AccountBalance @entity {
   tokenCount: BigInt!
 }
 
-
 type ERC20 @entity(immutable: true) {
   " ERC20 Smart contract address "
   id: Bytes!
 
   " Trades which are executed using this ERC20 token "
   trades: [Trade!]! @derivedFrom(field: "erc20Token")
-
-  " Collection volumes for this ERC20 token "
-  collectionVolumes: [CollectionVolume!]! @derivedFrom(field: "erc20Token")
-
-  " Token volumes for this ERC20 token "
-  tokenVolumes: [TokenVolume!]! @derivedFrom(field: "erc20Token")
 }
 
 type Trade @entity(immutable: true) {
@@ -202,4 +195,3 @@ type Trade @entity(immutable: true) {
   " Marketplace name eg. Opensea, Blur"
   marketplaceName: String!
 }
-

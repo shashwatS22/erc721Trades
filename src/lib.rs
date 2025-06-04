@@ -5,11 +5,13 @@ use pb::transfer::v1 as transfer;
 use substreams::{
     log::{self, info},
     store::{
-        StoreAdd, StoreAddInt64, StoreGetProto, StoreNew, StoreSet, StoreSetIfNotExists,
+        StoreAdd, StoreAddInt64, StoreGet, StoreGetProto, StoreNew, StoreSet, StoreSetIfNotExists,
         StoreSetIfNotExistsProto,
     },
     Hex,
 };
+use substreams_entity_change::pb::entity::EntityChanges;
+use substreams_entity_change::tables::Tables as EntityChangesTables;
 use substreams_ethereum::pb::eth::v2::Block;
 
 #[allow(unused_imports)]
@@ -348,49 +350,21 @@ fn store_collection_token_count(transfers: transfer::Transfers, store: StoreAddI
                 "Incremented token count for collection: {}",
                 transfer.collection_address
             );
-        }//add burn
+        } //add burn
     }
 }
 
 #[substreams::handlers::store]
-fn store_collection_owner_count(
-    transfers: transfer::Transfers,
-    store: StoreAddInt64,
-) {
+fn store_collection_owner_count(transfers: transfer::Transfers, store: StoreAddInt64) {
     for transfer in transfers.transfers {
         if transfer.is_minted {
-            // Increment owner count by 1 for new mints
-            store.add(
-                transfer.ordinal,
-                &format!("collection_owner_count:{}", &transfer.collection_address),
-                1,
-            );
-            log::info!(
-                "Incremented owner count for collection: {}",
-                transfer.collection_address
-            );
-            continue;
-        } else if transfer.is_burned {
-            // Decrement owner count by 1 for burns
-            store.add(
-                transfer.ordinal,
-                &format!("collection_owner_count:{}", &transfer.collection_address),
-                -1,
-            );
-            log::info!(
-                "Decremented owner count for collection: {}",
-                transfer.collection_address
-            );
-            continue;
+            store.add(0, format!("collection:{}", transfer.collection_address), 1);
         }
     }
 }
 
 #[substreams::handlers::store]
-fn store_collection_event_count(
-    transfers: transfer::Transfers,
-    store: StoreAddInt64,
-) {
+fn store_collection_event_count(transfers: transfer::Transfers, store: StoreAddInt64) {
     for transfer in transfers.transfers {
         // Increment event count by 1 for any transfer event
         store.add(
@@ -542,4 +516,260 @@ fn build_trade(
     trade.fee = fee.to_u64().unwrap();
     trade.ordinal = transfer.ordinal;
     trade
+}
+
+// Add the graph output module for Substreams-powered Subgraph
+#[substreams::handlers::map]
+fn graph_out(
+    transfers: transfer::Transfers,
+    trades: transfer::Trades,
+    collections_store: StoreGetProto<transfer::Collection>,
+    tokens_store: StoreGetProto<transfer::Token>,
+    erc20s_store: StoreGetProto<transfer::Erc20>,
+    accounts_store: StoreGetProto<transfer::Account>,
+) -> Result<EntityChanges, substreams::errors::Error> {
+    log::info!("=== GRAPH_OUT FUNCTION CALLED ===");
+    log::info!("Transfers count: {}", transfers.transfers.len());
+    log::info!("Trades count: {}", trades.trades.len());
+
+    // Initialize Database Changes container
+    let mut tables = EntityChangesTables::new();
+    let mut entity_count = 0;
+
+    // STEP 1: Create all Collection entities first
+    log::info!("STEP 1: Creating Collection entities");
+    let mut processed_collections = std::collections::HashSet::new();
+
+    for transfer in &transfers.transfers {
+        if !processed_collections.contains(&transfer.collection_address) {
+            if let Some(collection) = collections_store.get_last(&transfer.collection_address) {
+                log::info!(
+                    "Creating Collection entity: {}",
+                    transfer.collection_address
+                );
+                tables
+                    .create_row("Collection", &transfer.collection_address)
+                    .set("tokenCount", collection.token_count)
+                    .set("ownerCount", collection.owner_count)
+                    .set("eventCount", collection.event_count)
+                    .set("creationTimestamp", collection.creation_timestamp)
+                    .set("creationBlock", collection.creation_block)
+                    .set("baseURI", "")
+                    .set("name", "")
+                    .set("symbol", "");
+            } else {
+                log::info!(
+                    "No collection data found, creating minimal Collection: {}",
+                    transfer.collection_address
+                );
+                tables
+                    .create_row("Collection", &transfer.collection_address)
+                    .set("tokenCount", 0i64)
+                    .set("ownerCount", 0i64)
+                    .set("eventCount", 0i64)
+                    .set(
+                        "creationTimestamp",
+                        transfer.evt_block_time.as_ref().unwrap().seconds,
+                    )
+                    .set("creationBlock", transfer.evt_block_number)
+                    .set("baseURI", "")
+                    .set("name", "")
+                    .set("symbol", "");
+            }
+            processed_collections.insert(transfer.collection_address.clone());
+            entity_count += 1;
+        }
+    }
+
+    // STEP 2: Create all Account entities
+    log::info!("STEP 2: Creating Account entities");
+    let mut processed_accounts = std::collections::HashSet::new();
+
+    for transfer in &transfers.transfers {
+        // Create FROM account (if not mint)
+        if !transfer.is_minted && !processed_accounts.contains(&transfer.from) {
+            if let Some(from_account) = accounts_store.get_last(&transfer.from) {
+                log::info!("Creating FROM Account entity: {}", transfer.from);
+                tables
+                    .create_row("Account", &transfer.from)
+                    .set("tokenCount", from_account.token_count);
+            } else {
+                log::info!("Creating minimal FROM Account entity: {}", transfer.from);
+                tables
+                    .create_row("Account", &transfer.from)
+                    .set("tokenCount", 0i64);
+            }
+            processed_accounts.insert(transfer.from.clone());
+            entity_count += 1;
+        }
+
+        // Create TO account (if not burn)
+        if !transfer.is_burned && !processed_accounts.contains(&transfer.to) {
+            if let Some(to_account) = accounts_store.get_last(&transfer.to) {
+                log::info!("Creating TO Account entity: {}", transfer.to);
+                tables
+                    .create_row("Account", &transfer.to)
+                    .set("tokenCount", to_account.token_count);
+            } else {
+                log::info!("Creating minimal TO Account entity: {}", transfer.to);
+                tables
+                    .create_row("Account", &transfer.to)
+                    .set("tokenCount", 0i64);
+            }
+            processed_accounts.insert(transfer.to.clone());
+            entity_count += 1;
+        }
+    }
+
+    // STEP 3: Create all ERC20 entities from trades
+    log::info!("STEP 3: Creating ERC20 entities");
+    let mut processed_erc20s = std::collections::HashSet::new();
+
+    for trade in &trades.trades {
+        if !trade.erc20_token_address.is_empty()
+            && !processed_erc20s.contains(&trade.erc20_token_address)
+        {
+            log::info!("Creating ERC20 entity: {}", trade.erc20_token_address);
+            tables.create_row("ERC20", &trade.erc20_token_address);
+            processed_erc20s.insert(trade.erc20_token_address.clone());
+            entity_count += 1;
+        }
+    }
+
+    // STEP 4: Create Token entities
+    log::info!("STEP 4: Creating Token entities");
+    let mut processed_tokens = std::collections::HashSet::new();
+
+    for transfer in &transfers.transfers {
+        let token_id = format!("{}-{}", transfer.collection_address, transfer.token_id);
+
+        if transfer.is_minted && !processed_tokens.contains(&token_id) {
+            log::info!("Creating Token entity: {}", token_id);
+
+            // Parse tokenId as BigInt
+            let token_id_bigint = if let Ok(parsed) = transfer.token_id.parse::<i64>() {
+                parsed
+            } else {
+                // If parsing fails, try to convert hex to decimal
+                if transfer.token_id.starts_with("0x") || transfer.token_id.len() > 10 {
+                    // For hex or very large numbers, use a hash or truncated version
+                    (transfer.token_id.len() as i64) // Fallback
+                } else {
+                    0i64
+                }
+            };
+
+            tables
+                .create_row("Token", &token_id)
+                .set("collection", &transfer.collection_address) // Entity reference
+                .set("tokenId", token_id_bigint) // Use BigInt
+                .set("owner", &transfer.to) // Entity reference
+                .set(
+                    "mintTimestamp",
+                    transfer.evt_block_time.as_ref().unwrap().seconds,
+                )
+                .set("tokenUri", ""); // Add missing optional field
+
+            processed_tokens.insert(token_id.clone());
+            entity_count += 1;
+        } else if !transfer.is_minted {
+            log::info!("Updating Token entity owner: {}", token_id);
+            tables
+                .update_row("Token", &token_id)
+                .set("owner", &transfer.to); // Entity reference
+        }
+    }
+
+    // STEP 5: Create TokenEvent entities
+    log::info!("STEP 5: Creating TokenEvent entities");
+    for (i, transfer) in transfers.transfers.iter().enumerate() {
+        let token_event_id = format!(
+            "{}-{}-{}",
+            transfer.collection_address, transfer.evt_tx_hash, transfer.evt_index
+        );
+
+        log::info!("Creating TokenEvent {}: ID={}", i + 1, token_event_id);
+
+        // Parse tokenId as BigInt
+        let token_id_bigint = if let Ok(parsed) = transfer.token_id.parse::<i64>() {
+            parsed
+        } else {
+            if transfer.token_id.starts_with("0x") || transfer.token_id.len() > 10 {
+                (transfer.token_id.len() as i64) // Fallback
+            } else {
+                0i64
+            }
+        };
+
+        tables
+            .create_row("TokenEvent", token_event_id)
+            .set("hash", &transfer.evt_tx_hash)
+            .set(
+                "type",
+                if transfer.is_minted {
+                    "MINT"
+                } else if transfer.is_burned {
+                    "BURN"
+                } else {
+                    "TRANSFER"
+                },
+            )
+            .set("isTrade", transfer.is_traded)
+            .set("logIndex", transfer.evt_index as i32)
+            .set("collection", &transfer.collection_address) // Entity reference
+            .set("tokenId", token_id_bigint) // Use BigInt
+            .set("to", &transfer.to) // Entity reference
+            .set("from", &transfer.from) // Entity reference
+            .set("blockNumber", transfer.evt_block_number)
+            .set(
+                "timestamp",
+                transfer.evt_block_time.as_ref().unwrap().seconds,
+            )
+            .set("nonce", 0);
+
+        entity_count += 1;
+    }
+
+    // STEP 6: Create Trade entities
+    log::info!("STEP 6: Creating Trade entities");
+    for (i, trade) in trades.trades.iter().enumerate() {
+        if trade.id.is_empty() {
+            continue;
+        }
+
+        log::info!("Creating Trade {}: ID={}", i + 1, trade.id);
+
+        // Parse erc20TokenAmount as BigInt
+        let erc20_amount_bigint = if let Ok(parsed) = trade.erc20_token_amount.parse::<i64>() {
+            parsed
+        } else {
+            0i64 // Fallback for parsing errors
+        };
+
+        let token_entity_id = format!("{}-{}", trade.collection_address, trade.token_id);
+
+        tables
+            .create_row("Trade", &trade.id)
+            .set("hash", &trade.hash)
+            .set("blockNumber", trade.block_number)
+            .set("timestamp", trade.timestamp)
+            .set("collection", &trade.collection_address) // Entity reference
+            .set("token", &token_entity_id) // Entity reference
+            .set("erc20TokenAmount", erc20_amount_bigint) // Use BigInt
+            .set("erc20Token", &trade.erc20_token_address) // Entity reference
+            .set("marketplaceAddress", &trade.marketplace_address)
+            .set("marketplaceName", &trade.marketplace_name);
+
+        entity_count += 1;
+    }
+
+    let entity_changes = tables.to_entity_changes();
+    log::info!("=== GRAPH_OUT SUMMARY ===");
+    log::info!("Total entities created/updated: {}", entity_count);
+    log::info!(
+        "EntityChanges generated: {} changes",
+        entity_changes.entity_changes.len()
+    );
+
+    Ok(entity_changes)
 }

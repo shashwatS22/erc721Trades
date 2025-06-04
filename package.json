@@ -1,0 +1,21 @@
+{
+  "name": "erc721trades-subgraph",
+  "version": "1.0.0",
+  "description": "Substreams-powered Subgraph for ERC721 trades",
+  "scripts": {
+    "build": "graph build",
+    "deploy": "graph deploy erc-721-trades-sps",
+    "create-local": "graph create --node http://localhost:8020/ erc721trades",
+    "remove-local": "graph remove --node http://localhost:8020/ erc721trades",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 erc721trades",
+    "pack": "substreams pack",
+    "build-substreams": "cargo build --target wasm32-unknown-unknown --release"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "^0.91.1",
+    "@graphprotocol/graph-ts": "0.36.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
